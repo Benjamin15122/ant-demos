@@ -32,7 +32,6 @@ class Tabs extends React.Component {
   };
 
   handleClick = e => {
-    console.log('click ', e);
     this.setState({
       current: e.key,
     });
@@ -41,7 +40,6 @@ class Tabs extends React.Component {
   render() {
     const { list } = this.props
     const MenuGroup = recursiveMenuDecoder(list).filter(item=>item!==null)
-    console.log(MenuGroup)
     return (
       <Menu onClick={this.handleClick} selectedKeys={[this.state.current]} mode="horizontal">
         {MenuGroup}
