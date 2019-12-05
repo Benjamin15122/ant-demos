@@ -4,15 +4,81 @@
  * https://github.com/ant-design/ant-design-pro-layout
  */
 import ProLayout, { DefaultFooter } from '@ant-design/pro-layout';
-import React, { useEffect } from 'react';
+import React, { useEffect, Component } from 'react';
 import Link from 'umi/link';
 import { connect } from 'dva';
-import { Icon, Result, Button } from 'antd';
+import { Icon, Result, Button, Menu, Spin } from 'antd';
 import { formatMessage } from 'umi-plugin-react/locale';
 import Authorized from '@/utils/Authorized';
 import RightContent from '@/components/GlobalHeader/RightContent';
 import { isAntDesignPro, getAuthorityFromRouter } from '@/utils/utils';
 import logo from '../assets/logo.svg';
+var updateLocked = false
+const { SubMenu } = Menu;
+const recursiveMenuDecoder = menuList => menuList.map(item => {
+  if (item === null) return null
+  return item.children.length!==0 ? <SubMenu title={
+    <span>
+      {item.icon ? <Icon type={item.icon} /> : null}
+      {item.name}
+    </span>
+  }>{recursiveMenuDecoder(item.children)}</SubMenu> :
+    <Menu.Item key={item.locale}><Link to={item.path}>{item.name}</Link></Menu.Item>
+})
+
+const MenuGroup = [<Menu.Item key="mail">
+  <Icon type="mail" />
+  Navigation One
+</Menu.Item>,
+<Menu.Item key="app" disabled>
+  <Icon type="appstore" />
+  Navigation Two
+</Menu.Item>, <SubMenu
+  title={
+    <span className="submenu-title-wrapper">
+      <Icon type="setting" />
+      Navigation Three - Submenu
+  </span>
+  }
+><Menu.ItemGroup title="Item 1">
+    <Menu.Item key="setting.1">Option 1</Menu.Item>
+    <Menu.Item key="setting:2">Option 2</Menu.Item>
+  </Menu.ItemGroup>
+  <Menu.ItemGroup title="Item 2">
+    <Menu.Item key="setting:3">Option 3</Menu.Item>
+    <Menu.Item key="setting:4">Option 4</Menu.Item>
+  </Menu.ItemGroup>
+</SubMenu>,
+<Menu.Item key="alipay">
+  <a href="https://ant.design" target="_blank" rel="noopener noreferrer">
+    Navigation Four - Link
+</a>
+</Menu.Item>]
+
+class Tabs extends React.Component {
+  state = {
+    current: null,
+  };
+
+  handleClick = e => {
+    console.log('click ', e);
+    this.setState({
+      current: e.key,
+    });
+  };
+
+  render() {
+    const { list } = this.props
+    const MenuGroup = recursiveMenuDecoder(list).filter(item=>item!==null)
+    console.log(MenuGroup)
+    return (
+      <Menu onClick={this.handleClick} selectedKeys={[this.state.current]} mode="horizontal">
+        {MenuGroup}
+      </Menu>
+    );
+  }
+}
+
 const noMatch = (
   <Result
     status="403"
@@ -29,11 +95,22 @@ const noMatch = (
 /**
  * use Authorized check all menu item
  */
-const menuDataRender = menuList =>
-  menuList.map(item => {
-    const localItem = { ...item, children: item.children ? menuDataRender(item.children) : [] };
+const recursiveMenuDataRender = rawMenuList => {
+  const menuList = rawMenuList.map(item => {
+    const localItem = { ...item, children: item.children ? recursiveMenuDataRender(item.children) : [] };
     return Authorized.check(item.authority, localItem, null);
   });
+  return menuList
+}
+
+const menuDataRender = dispatch => rawMenuList => {
+  const menuList = recursiveMenuDataRender(rawMenuList)
+  if (!updateLocked) {
+    dispatch({ type: 'menu/update', payload: menuList })
+    updateLocked = true
+  }
+  return menuList
+}
 
 const defaultFooterDom = (
   <DefaultFooter
@@ -87,31 +164,22 @@ const footerRender = () => {
   );
 };
 
-const BasicLayout = props => {
-  const {
-    dispatch,
-    children,
-    settings,
-    location = {
-      pathname: '/',
-    },
-  } = props;
-  /**
-   * constructor
-   */
+class BasicLayout extends Component {
+  constructor(props) {
+    super(props)
+  }
 
-  useEffect(() => {
+  componentDidMount() {
+    const { dispatch } = this.props
     if (dispatch) {
       dispatch({
         type: 'user/fetchCurrent',
       });
     }
-  }, []);
-  /**
-   * init variables
-   */
+  }
 
-  const handleMenuCollapse = payload => {
+  handleMenuCollapse = payload => {
+    const { dispatch } = this.props
     if (dispatch) {
       dispatch({
         type: 'global/changeLayoutCollapsed',
@@ -120,59 +188,75 @@ const BasicLayout = props => {
     }
   }; // get children authority
 
-  const authorized = getAuthorityFromRouter(props.route.routes, location.pathname || '/') || {
-    authority: undefined,
-  };
-  return (
-    <ProLayout
-      logo={logo}
-      menuHeaderRender={(logoDom, titleDom) => (
-        <Link to="/">
-          {logoDom}
-          {titleDom}
-        </Link>
-      )}
-      onCollapse={handleMenuCollapse}
-      menuItemRender={(menuItemProps, defaultDom) => {
-        if (menuItemProps.isUrl || menuItemProps.children) {
-          return defaultDom;
-        }
+  render() {
+    const {
+      children,
+      tabSelected,
+      tabList,
+      dispatch,
+      settings,
+      location = {
+        pathname: '/',
+      },
+    } = this.props;
 
-        return <Link to={menuItemProps.path}>{defaultDom}</Link>;
-      }}
-      breadcrumbRender={(routers = []) => [
-        {
-          path: '/',
-          breadcrumbName: formatMessage({
-            id: 'menu.home',
-            defaultMessage: 'Home',
-          }),
-        },
-        ...routers,
-      ]}
-      itemRender={(route, params, routes, paths) => {
-        const first = routes.indexOf(route) === 0;
-        return first ? (
-          <Link to={paths.join('/')}>{route.breadcrumbName}</Link>
-        ) : (
-          <span>{route.breadcrumbName}</span>
-        );
-      }}
-      footerRender={footerRender}
-      menuDataRender={menuDataRender}
-      formatMessage={formatMessage}
-      rightContentRender={rightProps => <RightContent {...rightProps} />}
-      {...props}
-      {...settings}
-    >
-      <Authorized authority={authorized.authority} noMatch={noMatch}>
-        {children}
-      </Authorized>
-    </ProLayout>
-  );
-};
+    const authorized = getAuthorityFromRouter(this.props.route.routes, location.pathname || '/') || {
+      authority: undefined
+    }
+    return (
+      <ProLayout
+        logo={logo}
+        menuHeaderRender={(logoDom, titleDom) => (
+          <Link to="/">
+            {logoDom}
+            {titleDom}
+          </Link>
+        )}
+        onCollapse={this.handleMenuCollapse}
+        menuItemRender={(menuItemProps, defaultDom) => {
+          if (menuItemProps.isUrl || menuItemProps.children) {
+            return defaultDom;
+          }
+          return <Link to={menuItemProps.path}>{defaultDom}</Link>;
+        }}
+        breadcrumbRender={(routers = []) => [
+          {
+            path: '/',
+            breadcrumbName: formatMessage({
+              id: 'menu.home',
+              defaultMessage: 'Home',
+            }),
+          },
+          ...routers,
+        ]}
+        itemRender={(route, params, routes, paths) => {
+          const first = routes.indexOf(route) === 0;
+          return first ? (
+            <Link to={paths.join('/')}>{route.breadcrumbName}</Link>
+          ) : (
+              <span>{route.breadcrumbName}</span>
+            );
+        }}
+        footerRender={footerRender}
+        menuDataRender={menuDataRender(dispatch)}
+        formatMessage={formatMessage}
+        rightContentRender={rightProps => <RightContent {...rightProps} />}
+        {...this.props}
+        {...settings}
+      >
+        <Tabs list={tabList} selected={tabSelected} dispatch={dispatch} />
+        <Authorized authority={authorized.authority} noMatch={noMatch}>
+          {children}
+        </Authorized>
+      </ProLayout>
+    );
+  }
 
-export default connect(({ global, settings }) => ({
+}
+
+export default connect(({ global, settings, menu }) => ({
   collapsed: global.collapsed,
   settings,
+  tabList: menu.menuList,
+  tabSelected: menu.selected,
 }))(BasicLayout);

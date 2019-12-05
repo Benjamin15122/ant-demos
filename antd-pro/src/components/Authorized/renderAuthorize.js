@@ -22,7 +22,6 @@ const renderAuthorize = Authorized => currentAuthority => {
   } else {
     CURRENT = 'NULL';
   }
-
   return Authorized;
 };
 

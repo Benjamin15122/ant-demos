@@ -3,6 +3,74 @@ import { CURRENT } from './renderAuthorize'; // eslint-disable-next-line import/
 
 import PromiseRender from './PromiseRender';
 
+const boolCheckPermissions = (authority, currentAuthority) => {
+  // 没有判定权限.默认查看所有
+  // Retirement authority, return target;
+  if (!authority) {
+    return true
+  } // 数组处理
+
+  if (Array.isArray(authority)) {
+    if (Array.isArray(currentAuthority)) {
+      if (currentAuthority.some(item => authority.includes(item))) {
+        return true
+      }
+    } else if (authority.includes(currentAuthority)) {
+      return true
+    }
+
+    return false
+  } // string 处理
+
+  if (typeof authority === 'string') {
+    if (Array.isArray(currentAuthority)) {
+      if (currentAuthority.some(item => authority === item)) {
+        return true
+      }
+    } else if (authority === currentAuthority) {
+      return true
+    }
+
+    return false
+  } // Promise 处理
+
+  if (authority instanceof Promise) {
+    authority
+      .then(() => {
+        return true;
+      })
+      .catch(() => {
+        return false
+      });
+  } // Function 处理
+
+  if (typeof authority === 'function') {
+    try {
+      const bool = authority(currentAuthority); // 函数执行后返回值是 Promise
+
+      if (bool instanceof Promise) {
+        bool
+          .then(() => {
+            return true;
+          })
+          .catch(() => {
+            return false
+          });
+      }
+
+      if (bool) {
+        return true
+      }
+
+      return false
+    } catch (error) {
+      return false
+    }
+  }
+
+  return false
+};
+
 /**
  * 通用权限检查方法
  * Common check permissions method
@@ -73,4 +141,8 @@ function check(authority, target, Exception) {
   return checkPermissions(authority, CURRENT, target, Exception);
 }
 
+function boolCheck(authority) {
+  return boolCheckPermissions(authority, CURRENT);
+}
+export { boolCheck }
 export default check;

@@ -104,6 +104,45 @@ export default {
               component: './Welcome',
             },
             {
+              path: '/pages',
+              name: 'pages',
+              icon: 'crown',
+              routes: [
+                {
+                  path: '/page4',
+                  name: 'page4',
+                  icon: 'crown',
+                  component: './Page1',
+                },
+                {
+                  path: '/page5',
+                  name: 'page5',
+                  icon: 'crown',
+                  component: './Page2',
+                  authority: ['admin'],
+                },
+              ]
+            },
+            {
+              path: '/page1',
+              name: 'page1',
+              icon: 'crown',
+              component: './Page1',
+            },
+            {
+              path: '/page2',
+              name: 'page2',
+              icon: 'crown',
+              component: './Page2',
+              authority: ['admin'],
+            },
+            {
+              path: '/page3',
+              name: 'page3',
+              icon: 'crown',
+              component: './Page3',
+            },
+            {
               path: '/admin',
               name: 'admin',
               icon: 'crown',
